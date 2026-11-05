@@ -8,6 +8,8 @@
 npm install
 cp .env.example .env          # แก้ MONGO_URI / JWT_SECRET ตามเครื่อง
 npm run seed:admin            # สร้าง admin คนแรก (approved แล้ว) ไว้ approve คนอื่น
+npm run seed:data             # (ไม่บังคับ) สินค้าตัวอย่าง 5 ชิ้น + user ทดสอบ 3 คน
+npm run seed:data -- --reset  # ล้าง Product/Order ทั้งหมดก่อน แล้วค่อยใส่ข้อมูลตัวอย่าง
 npm run dev                   # หรือ npm start
 ```
 
