@@ -8,15 +8,23 @@ async function authenticate(req, res, next) {
   const [scheme, token] = header.split(' ');
   if (scheme !== 'Bearer' || !token) return fail(res, 401, 'unauthorized');
 
+  // จับเฉพาะ error ของ JWT เป็น 401
+  let payload;
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    payload = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return fail(res, 401, 'invalid or expired token');
+  }
+
+  // error จาก DB (เช่น MongoDB ล่ม) ส่งต่อให้ errorHandler ตอบ 500
+  try {
     const user = await User.findById(payload.sub);
     if (!user) return fail(res, 401, 'unauthorized');
     if (!user.approved) return fail(res, 401, 'waiting for approval');
     req.user = user;
     return next();
-  } catch {
-    return fail(res, 401, 'invalid or expired token');
+  } catch (err) {
+    return next(err);
   }
 }
 

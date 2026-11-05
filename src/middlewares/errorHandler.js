@@ -10,6 +10,10 @@ function errorHandler(err, req, res, next) {
     const errors = Object.values(err.errors).map((e) => e.message);
     return fail(res, 400, 'validation error', errors);
   }
+  // ค่าผิดชนิด เช่น price: "abc" ตอน update -> 400
+  if (err.name === 'CastError') {
+    return fail(res, 400, 'validation error', [`invalid value for ${err.path}`]);
+  }
   if (err.code === 11000) {
     return fail(res, 400, `duplicate value: ${Object.keys(err.keyValue).join(', ')}`);
   }

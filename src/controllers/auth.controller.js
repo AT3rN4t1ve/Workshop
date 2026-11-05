@@ -8,10 +8,14 @@ const signToken = (user) =>
     expiresIn: process.env.JWT_EXPIRES_IN || '1d',
   });
 
+// ต้องเป็น string ที่ไม่ว่าง กัน object อย่าง { "$ne": null } หลุดไปเป็น query operator ของ MongoDB
+const isNonEmptyString = (v) => typeof v === 'string' && v.length > 0;
+const hasCredentials = (body) => isNonEmptyString(body?.username) && isNonEmptyString(body?.password);
+
 // [POST] /api/v1/register  -> สมัครสมาชิก (สถานะ approved = false รอ Approve)
 exports.register = asyncHandler(async (req, res) => {
+  if (!hasCredentials(req.body)) return fail(res, 400, 'username and password are required');
   const { username, password, firstName, lastName } = req.body;
-  if (!username || !password) return fail(res, 400, 'username and password are required');
 
   const exists = await User.exists({ username });
   if (exists) return fail(res, 400, 'username already exists');
@@ -26,8 +30,8 @@ exports.register = asyncHandler(async (req, res) => {
 //  - ยังไม่ได้รับ Approve -> 401 รอ Approve
 //  - ผ่าน               -> 200 + token
 exports.login = asyncHandler(async (req, res) => {
+  if (!hasCredentials(req.body)) return fail(res, 400, 'username and password are required');
   const { username, password } = req.body;
-  if (!username || !password) return fail(res, 400, 'username and password are required');
 
   const user = await User.findOne({ username }).select('+password');
   if (!user || !(await user.comparePassword(password))) {
