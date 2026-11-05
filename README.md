@@ -45,12 +45,14 @@ src/
 | มีรายการเดียว | `{...}` | 200 |
 | บันทึกสำเร็จ | `{...}` | 201 |
 
+สถานะ status: 200 สำเร็จ · 201 สร้างสำเร็จ · 400 ไม่สำเร็จ · 401 ไม่มีสิทธิ์ · 500 ไม่ทราบสาเหตุ
+
 ## Endpoints
 
 | Method | Path | Auth | คำอธิบาย |
 |---|---|---|---|
 | POST | `/register` | - | สมัครสมาชิก (approved = false) |
-| POST | `/login` | - | เข้าสู่ระบบ → ได้ JWT (ไม่มีบัญชี 401 / ยังไม่ Approve 403) |
+| POST | `/login` | - | เข้าสู่ระบบ → ได้ JWT (ไม่มีบัญชี / ยังไม่ Approve → 401) |
 | PUT | `/users/:id/approve` | admin | Approve ผู้ใช้ |
 | GET | `/products` | user | แสดงรายการ Product ทั้งหมด |
 | GET | `/products/:id` | user | ดูรายการ Product 1 รายการ |
@@ -78,6 +80,8 @@ Route ที่ต้อง auth ให้ส่ง header `Authorization: Beare
 // POST /products/:id/orders
 { "quantity": 3 }
 ```
+
+> เติม stock ใช้ `PUT /products/:id` กับ `{ "stock": 10 }` (ตั้งค่า stock ใหม่)
 
 ## Business rules
 

@@ -23,7 +23,7 @@ exports.register = asyncHandler(async (req, res) => {
 
 // [POST] /api/v1/login
 //  - ไม่มีข้อมูลในระบบ  -> 401 ให้ไปสมัครสมาชิก
-//  - ยังไม่ได้รับ Approve -> 403 รอ Approve
+//  - ยังไม่ได้รับ Approve -> 401 รอ Approve
 //  - ผ่าน               -> 200 + token
 exports.login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
@@ -33,7 +33,7 @@ exports.login = asyncHandler(async (req, res) => {
   if (!user || !(await user.comparePassword(password))) {
     return fail(res, 401, 'invalid username or password, please register');
   }
-  if (!user.approved) return fail(res, 403, 'waiting for approval');
+  if (!user.approved) return fail(res, 401, 'waiting for approval');
 
   return ok(res, { token: signToken(user), user });
 });

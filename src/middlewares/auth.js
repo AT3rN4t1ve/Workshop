@@ -12,7 +12,7 @@ async function authenticate(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(payload.sub);
     if (!user) return fail(res, 401, 'unauthorized');
-    if (!user.approved) return fail(res, 403, 'waiting for approval');
+    if (!user.approved) return fail(res, 401, 'waiting for approval');
     req.user = user;
     return next();
   } catch {
@@ -21,7 +21,7 @@ async function authenticate(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (req.user?.role !== 'admin') return fail(res, 403, 'forbidden');
+  if (req.user?.role !== 'admin') return fail(res, 401, 'forbidden: admin only');
   return next();
 }
 

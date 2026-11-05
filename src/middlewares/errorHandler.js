@@ -1,7 +1,7 @@
 const { fail } = require('../utils/response');
 
 function notFound(req, res) {
-  return fail(res, 404, `route not found: ${req.method} ${req.originalUrl}`);
+  return fail(res, 400, `route not found: ${req.method} ${req.originalUrl}`);
 }
 
 // eslint-disable-next-line no-unused-vars

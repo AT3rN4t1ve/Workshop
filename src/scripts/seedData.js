@@ -20,7 +20,7 @@ const products = [
 const users = [
   { username: 'somchai', password: '123456', firstName: 'สมชาย', lastName: 'ใจดี', approved: true },
   { username: 'somying', password: '123456', firstName: 'สมหญิง', lastName: 'รักเรียน', approved: true },
-  // ตั้งใจให้ยังไม่ approved ไว้เดโมเคส Login ได้ 403 และขั้นตอน Approve
+  // ตั้งใจให้ยังไม่ approved ไว้เดโมเคส Login ได้ 401 (waiting for approval) และขั้นตอน Approve
   { username: 'newbie', password: '123456', firstName: 'มือใหม่', lastName: 'รออนุมัติ', approved: false },
 ];
 
