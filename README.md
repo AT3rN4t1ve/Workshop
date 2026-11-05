@@ -58,6 +58,85 @@ src/
 └── scripts/           seedAdmin, seedData
 ```
 
+## Flow การทำงาน
+
+### 1. Flow ของผู้ใช้ (สมัคร → Approve → ใช้งาน)
+
+```mermaid
+flowchart TD
+    A["POST /register"] --> B["สร้าง User<br/>approved = false"]
+    B --> C{"admin Approve แล้ว?<br/>PUT /users/:id/approve"}
+    C -- ยัง --> D["POST /login → 401<br/>waiting for approval"]
+    D --> C
+    C -- แล้ว --> E["POST /login"]
+    E --> F{"username / password ถูก?"}
+    F -- ไม่ถูก / ไม่มีบัญชี --> G["401 ให้ไปสมัครสมาชิก"]
+    F -- ถูก --> H["200 + JWT token"]
+    H --> I["เรียก /products, /orders<br/>พร้อม Authorization: Bearer &lt;token&gt;"]
+```
+
+1. ผู้ใช้สมัครผ่าน `POST /register` → ระบบสร้าง User ที่ `approved = false` (role เป็น `user` เสมอ)
+2. admin (สร้างจาก `npm run seed:admin`) login แล้วเรียก `PUT /users/:id/approve` เพื่อ Approve
+3. ผู้ใช้ login ด้วย `POST /login` → ได้ JWT (อายุตาม `JWT_EXPIRES_IN`) ถ้ายังไม่ Approve จะได้ 401
+4. ใช้ token ใน header `Authorization: Bearer <token>` เพื่อจัดการ Product / Order
+
+### 2. เส้นทางของ request ภายใน server
+
+```mermaid
+flowchart LR
+    R["Request"] --> M["cors → express.json → morgan<br/>(app.js)"]
+    M --> RT["router /api/v1<br/>(routes/index.js)"]
+    RT --> AU["authenticate<br/>ตรวจ JWT + approved"]
+    AU --> AD["requireAdmin<br/>(เฉพาะ route approve)"]
+    AD --> V["validateObjectId<br/>(route ที่มี :id)"]
+    V --> CT["controller"]
+    CT --> RES["ok / created / fail<br/>(utils/response)"]
+    CT -. throw .-> EH["errorHandler"]
+    RT -. ไม่มี route .-> NF["notFound → 400"]
+```
+
+| ขั้น | ไฟล์ | ทำอะไร | ถ้าไม่ผ่าน |
+|---|---|---|---|
+| 1 | `app.js` | เปิด CORS, แปลง JSON body, log request | JSON พัง → 400 `invalid JSON body` |
+| 2 | `routes/index.js` | `/register`, `/login` ผ่านได้เลย ส่วน route อื่นต้องผ่าน `authenticate` | ไม่มี route → 400 `route not found` |
+| 3 | `middlewares/auth.js` → `authenticate` | ตรวจ `Bearer` token, verify JWT, หา User, เช็ค `approved` แล้วใส่ `req.user` | 401 |
+| 4 | `middlewares/auth.js` → `requireAdmin` | เช็ค `role === 'admin'` (ใช้กับ `/users/:id/approve`) | 401 `forbidden: admin only` |
+| 5 | `middlewares/validateObjectId.js` | เช็คว่า `:id` เป็น ObjectId ที่ถูกรูปแบบ | 400 `data: null` |
+| 6 | `controllers/*` | ทำงานกับ MongoDB ผ่าน Mongoose แล้วตอบด้วย `utils/response` | 400 ตามกรณี |
+| 7 | `middlewares/errorHandler.js` | จับ error ที่ throw ออกมา (ผ่าน `asyncHandler`) | Validation / duplicate → 400, อื่นๆ → 500 |
+
+### 3. Flow การเพิ่ม Order (`POST /products/:id/orders`)
+
+```mermaid
+flowchart TD
+    S["รับ { quantity }"] --> Q{"quantity เป็นจำนวนเต็ม ≥ 1?"}
+    Q -- ไม่ --> E1["400 quantity must be an integer"]
+    Q -- ใช่ --> P{"พบ Product?"}
+    P -- ไม่ --> E2["400 product not found (data: null)"]
+    P -- พบ --> U{"ตัด stock แบบ atomic<br/>stock >= quantity?"}
+    U -- ไม่พอ --> E3["400 cannot create order"]
+    U -- พอ --> O["บันทึก Order<br/>unitPrice, totalPrice"]
+    O -- สำเร็จ --> OK["201 + Order"]
+    O -- ล้มเหลว --> RB["คืน stock แล้วส่ง error ต่อ"]
+```
+
+1. ตรวจ `quantity` ต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป
+2. หา Product จาก `:id` ไม่พบ → 400
+3. ตัด stock ด้วย `findOneAndUpdate({ stock: { $gte: quantity } }, { $inc: { stock: -quantity } })` ในคำสั่งเดียว ถ้า stock ไม่พอจะไม่มีการอัปเดต → 400
+4. สร้าง Order โดยบันทึก `unitPrice` และ `totalPrice = price × quantity` ณ เวลาสั่ง
+5. ถ้าบันทึก Order ไม่สำเร็จ จะคืน stock กลับให้ Product
+
+### 4. ลำดับการลองใช้งาน
+
+1. `npm run seed:admin` แล้ว `npm run dev`
+2. `POST /register` สมัคร user ใหม่ → จด `_id` จาก response
+3. `POST /login` ด้วย admin → ได้ token ของ admin
+4. `PUT /users/<_id>/approve` ด้วย token ของ admin
+5. `POST /login` ด้วย user ใหม่ → ได้ token ของ user
+6. `POST /products` เพิ่มสินค้า → จด `_id` ของสินค้า
+7. `POST /products/<productId>/orders` กับ `{ "quantity": 1 }` → stock ลดลง
+8. `GET /orders` หรือ `GET /products/<productId>/orders` ดู Order ที่สร้าง
+
 ## Response format
 
 ทุก endpoint ตอบกลับรูปแบบเดียวกัน
