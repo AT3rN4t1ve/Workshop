@@ -12,7 +12,7 @@ const connectDB = async () => {
     console.log('MongoDB connected successfully');
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
-    throw err; // Rethrow the error to be handled in bin/www
+    throw err; // Rethrow the error to be handled in server.js
   }
 };
 
