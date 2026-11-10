@@ -12,13 +12,12 @@
 ```bash
 npm install
 cp .env.example .env          # แก้ DB_Host / DB_Port / DB_Name / JWT_SECRET ตามเครื่อง (Windows cmd ใช้ copy .env.example .env)
-npm run seed:admin            # สร้าง admin คนแรก (approved แล้ว) ไว้ approve คนอื่น
-npm run seed:data             # (ไม่บังคับ) สินค้าตัวอย่าง 5 ชิ้น + user ทดสอบ 3 คน + Order ตัวอย่าง 5 รายการ
-npm run seed:data -- --reset  # ล้าง Product/Order ทั้งหมดก่อน แล้วค่อยใส่ข้อมูลตัวอย่าง
 npm run dev                   # หรือ npm start
 ```
 
 Base URL: `http://localhost:3000/api/v1`
+
+ข้อมูลทั้งหมดมาจากการใช้งานผ่าน API / หน้าบ้าน ไม่มีสคริปต์ใส่ข้อมูลเริ่มต้น **ผู้ใช้คนแรกที่สมัครจะเป็น admin และ Approve แล้วโดยอัตโนมัติ** เพื่อใช้ Approve คนถัดไป
 
 ## Environment variables
 
@@ -30,19 +29,6 @@ Base URL: `http://localhost:3000/api/v1`
 | `DB_Name` | `WorkShop` | ชื่อ database |
 | `JWT_SECRET` | - | **ต้องตั้งค่า** ไม่งั้น server ไม่ยอมรัน |
 | `JWT_EXPIRES_IN` | `1d` | อายุของ token |
-| `ADMIN_USERNAME` | `admin` | username ของ admin ที่สร้างด้วย `seed:admin` |
-| `ADMIN_PASSWORD` | `admin1234` | password ของ admin ที่สร้างด้วย `seed:admin` |
-
-## บัญชีทดสอบ (จาก seed)
-
-| username | password | สถานะ |
-|---|---|---|
-| `admin` | `admin1234` | admin, approved (จาก `seed:admin`) |
-| `somchai` | `123456` | user, approved |
-| `somying` | `123456` | user, approved |
-| `newbie` | `123456` | user, **ยังไม่ Approve** ใช้ทดสอบ login ได้ 401 และขั้นตอน Approve |
-
-หลัง seed สินค้า "เครื่องคิดเลข" จะเหลือ stock 1 ชิ้น ใช้ทดสอบการสั่งเกิน stock (สั่ง 2 ชิ้นจะได้ 400)
 
 ## โครงสร้าง
 
@@ -55,7 +41,6 @@ src/
 ├── routes/index.js
 ├── middlewares/       auth (JWT + approved), validateObjectId, errorHandler
 ├── utils/             response, asyncHandler
-└── scripts/           seedAdmin, seedData
 ```
 
 ## Flow การทำงาน
@@ -64,19 +49,19 @@ src/
 
 ```mermaid
 flowchart TD
-    A["POST /register"] --> B["สร้าง User<br/>approved = false"]
+    A["POST /register"] --> B["สร้าง User<br/>approved = false<br/>(คนแรกของระบบ = admin, approved)"]
     B --> C{"admin Approve แล้ว?<br/>PUT /users/:id/approve"}
     C -- ยัง --> D["POST /login → 401<br/>waiting for approval"]
     D --> C
     C -- แล้ว --> E["POST /login"]
-    E --> F{"username / password ถูก?"}
+    E --> F{"email / password ถูก?"}
     F -- ไม่ถูก / ไม่มีบัญชี --> G["401 ให้ไปสมัครสมาชิก"]
     F -- ถูก --> H["200 + JWT token"]
     H --> I["เรียก /products, /orders<br/>พร้อม Authorization: Bearer &lt;token&gt;"]
 ```
 
-1. ผู้ใช้สมัครผ่าน `POST /register` → ระบบสร้าง User ที่ `approved = false` (role เป็น `user` เสมอ)
-2. admin (สร้างจาก `npm run seed:admin`) login แล้วเรียก `PUT /users/:id/approve` เพื่อ Approve
+1. ผู้ใช้สมัครผ่าน `POST /register` → ระบบสร้าง User ที่ `approved = false` และ role เป็น `user` ยกเว้นคนแรกของระบบที่จะได้ role `admin` และ `approved = true`
+2. admin (คนแรกที่สมัคร) login แล้วเรียก `PUT /users/:id/approve` เพื่อ Approve
 3. ผู้ใช้ login ด้วย `POST /login` → ได้ JWT (อายุตาม `JWT_EXPIRES_IN`) ถ้ายังไม่ Approve จะได้ 401
 4. ใช้ token ใน header `Authorization: Bearer <token>` เพื่อจัดการ Product / Order
 
@@ -100,7 +85,7 @@ flowchart LR
 | 1 | `app.js` | เปิด CORS, แปลง JSON body, log request | JSON พัง → 400 `invalid JSON body` |
 | 2 | `routes/index.js` | `/register`, `/login` ผ่านได้เลย ส่วน route อื่นต้องผ่าน `authenticate` | ไม่มี route → 400 `route not found` |
 | 3 | `middlewares/auth.js` → `authenticate` | ตรวจ `Bearer` token, verify JWT, หา User, เช็ค `approved` แล้วใส่ `req.user` | 401 |
-| 4 | `middlewares/auth.js` → `requireAdmin` | เช็ค `role === 'admin'` (ใช้กับ `/users/:id/approve`) | 401 `forbidden: admin only` |
+| 4 | `middlewares/auth.js` → `requireAdmin` | เช็ค `role === 'admin'` (ใช้กับ `/users`, `/users/:id/approve` และการเพิ่ม/แก้ไข/ลบ Product) | 401 `forbidden: admin only` |
 | 5 | `middlewares/validateObjectId.js` | เช็คว่า `:id` เป็น ObjectId ที่ถูกรูปแบบ | 400 `data: null` |
 | 6 | `controllers/*` | ทำงานกับ MongoDB ผ่าน Mongoose แล้วตอบด้วย `utils/response` | 400 ตามกรณี |
 | 7 | `middlewares/errorHandler.js` | จับ error ที่ throw ออกมา (ผ่าน `asyncHandler`) | Validation / duplicate → 400, อื่นๆ → 500 |
@@ -128,14 +113,14 @@ flowchart TD
 
 ### 4. ลำดับการลองใช้งาน
 
-1. `npm run seed:admin` แล้ว `npm run dev`
+1. `npm run dev` แล้ว `POST /register` สมัครคนแรก → ได้เป็น admin (ถ้าระบบมีผู้ใช้อยู่แล้วให้ใช้บัญชี admin เดิม)
 2. `POST /register` สมัคร user ใหม่ → จด `_id` จาก response
 3. `POST /login` ด้วย admin → ได้ token ของ admin
 4. `PUT /users/<_id>/approve` ด้วย token ของ admin
 5. `POST /login` ด้วย user ใหม่ → ได้ token ของ user
-6. `POST /products` เพิ่มสินค้า → จด `_id` ของสินค้า
-7. `POST /products/<productId>/orders` กับ `{ "quantity": 1 }` → stock ลดลง
-8. `GET /orders` หรือ `GET /products/<productId>/orders` ดู Order ที่สร้าง
+6. `POST /products` เพิ่มสินค้าด้วย token ของ admin → จด `_id` ของสินค้า
+7. `POST /products/<productId>/orders` กับ `{ "quantity": 1 }` ด้วย token ของ user → stock ลดลง
+8. `GET /orders` หรือ `GET /products/<productId>/orders` ดู Order ที่สร้าง (user เห็นเฉพาะของตัวเอง, admin เห็นทั้งหมด)
 
 ## Response format
 
@@ -167,26 +152,29 @@ flowchart TD
 |---|---|---|---|
 | POST | `/register` | - | สมัครสมาชิก (approved = false) |
 | POST | `/login` | - | เข้าสู่ระบบ → ได้ JWT (ไม่มีบัญชี / ยังไม่ Approve → 401) |
+| GET | `/users` | admin | แสดงรายชื่อผู้ใช้ทั้งหมด (ใหม่สุดก่อน) |
 | PUT | `/users/:id/approve` | admin | Approve ผู้ใช้ |
 | GET | `/products` | user | แสดงรายการ Product ทั้งหมด |
 | GET | `/products/:id` | user | ดูรายการ Product 1 รายการ |
-| POST | `/products` | user | เพิ่มรายการ Product |
-| PUT | `/products/:id` | user | แก้ไขรายการ Product |
-| DELETE | `/products/:id` | user | ลบรายการ Product |
-| GET | `/orders` | user | แสดง Order ทุกรายการ |
-| GET | `/products/:id/orders` | user | แสดง Order ทั้งหมดของ Product |
+| POST | `/products` | admin | เพิ่มรายการ Product |
+| PUT | `/products/:id` | admin | แก้ไขรายการ Product |
+| DELETE | `/products/:id` | admin | ลบรายการ Product |
+| GET | `/orders` | user | แสดง Order ทุกรายการ (user เห็นเฉพาะของตัวเอง, admin เห็นทั้งหมด) |
+| GET | `/products/:id/orders` | user | แสดง Order ทั้งหมดของ Product (user เห็นเฉพาะของตัวเอง, admin เห็นทั้งหมด) |
 | POST | `/products/:id/orders` | user | เพิ่ม Order ใน Product (quantity ต้องไม่เกิน stock) |
 
 Route ที่ต้อง auth ให้ส่ง header `Authorization: Bearer <token>` และผู้ใช้ต้องได้รับการ Approve แล้ว
+
+คอลัมน์ Auth: `user` = ผู้ใช้ที่ login แล้วทุกคน (รวม admin), `admin` = เฉพาะ role admin (ไม่ใช่ admin จะได้ 401 `forbidden: admin only`)
 
 ## ตัวอย่าง body
 
 ```jsonc
 // POST /register
-{ "username": "bob", "password": "123456", "firstName": "Bob", "lastName": "Lee" }
+{ "email": "bob@example.com", "password": "123456", "firstName": "Bob", "lastName": "Lee" }
 
 // POST /login
-{ "username": "bob", "password": "123456" }
+{ "email": "bob@example.com", "password": "123456" }
 // → 200 { "status": 200, "message": "success", "data": { "token": "<JWT>", "user": { ... } } }
 
 // POST /products, PUT /products/:id
@@ -198,8 +186,8 @@ Route ที่ต้อง auth ให้ส่ง header `Authorization: Beare
 
 Validation
 
-- `username` ยาวอย่างน้อย 3 ตัวอักษรและห้ามซ้ำ, `password` ยาวอย่างน้อย 6 ตัวอักษร
-- Product ต้องมี `name` และ `price`, ส่วน `price` และ `stock` ต้องไม่ติดลบ
+- `email` ต้องถูกรูปแบบและห้ามซ้ำ (เก็บเป็นตัวพิมพ์เล็ก), `password` ยาวอย่างน้อย 6 ตัวอักษร
+- Product ต้องมี `name` และ `price`, ส่วน `price` และ `stock` ต้องไม่ติดลบ และ `stock` ต้องเป็นจำนวนเต็ม
 - `quantity` ต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป
 
 > เติม stock ใช้ `PUT /products/:id` กับ `{ "stock": 10 }` (ตั้งค่า stock ใหม่)
@@ -208,6 +196,7 @@ Validation
 
 - เพิ่ม Order: ตัด stock แบบ atomic (`findOneAndUpdate` กับเงื่อนไข `stock >= quantity`) กัน order ที่ยิงพร้อมกันทำให้ stock ติดลบ ถ้าเกิน stock ตอบ 400 "cannot create order"
 - Order เก็บ `unitPrice` / `totalPrice` ณ เวลาสั่ง ราคา Product เปลี่ยนทีหลังไม่กระทบ Order เดิม
-- `/register` ไม่รับ `role` / `approved` จาก body กันการตั้งตัวเองเป็น admin
+- `/register` ไม่รับ `role` / `approved` จาก body กันการตั้งตัวเองเป็น admin (admin มีได้จากการเป็นผู้สมัครคนแรกของระบบเท่านั้น)
+- สิทธิ์ตาม role: user ดูสินค้า สั่งซื้อ และดู Order ของตัวเองได้ ส่วน admin จัดการสินค้า ดู Order ของทุกคน และดู/Approve ผู้ใช้ได้
 - id ผิดรูปแบบหรือไม่พบ → `data: null`, status 400 ตาม flowchart
 - ลบ Product แล้ว Order เดิมของสินค้านั้นยังอยู่ แต่ field `product` ใน Order จะเป็น `null` ตอนดึงข้อมูล

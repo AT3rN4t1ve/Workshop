@@ -4,7 +4,7 @@ const { ok, created, fail } = require('../utils/response');
 
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => (obj[k] !== undefined ? { ...acc, [k]: obj[k] } : acc), {});
-const FIELDS = ['name', 'description', 'price', 'stock'];
+const FIELDS = ['name', 'description', 'category', 'imageUrl', 'price', 'stock', 'optionGroups'];
 
 // [GET] /api/v1/products -> แสดงรายการ Product ทั้งหมด ([] หรือ [{..}] 200)
 exports.getProducts = asyncHandler(async (_req, res) => {

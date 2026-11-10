@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Shop API (Express + MongoDB)",
-    "description": "โฟลเดอร์ 1–4: ไล่ flow ตั้งแต่สมัครสมาชิก (ต้องรัน npm run seed:admin ก่อน)\nโฟลเดอร์ 5: เดโมด้วยข้อมูลตัวอย่าง (ต้องรัน npm run seed:data ก่อน) — กด Run เฉพาะโฟลเดอร์นี้ได้\ntoken และ id จะถูกเก็บลง collection variables อัตโนมัติ",
+    "description": "ไล่ flow ตั้งแต่สมัครสมาชิกจนถึงสั่งซื้อ รันตามลำดับโฟลเดอร์ 1–4\nต้องมี admin ในระบบก่อน (ผู้ใช้คนแรกที่สมัครจะเป็น admin) แล้วตั้งตัวแปร adminEmail / adminPassword ให้ตรง\ntoken และ id จะถูกเก็บลง collection variables อัตโนมัติ",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -10,16 +10,16 @@
       "value": "http://localhost:3000/api/v1"
     },
     {
-      "key": "adminUsername",
-      "value": "admin"
+      "key": "adminEmail",
+      "value": "admin@example.com"
     },
     {
       "key": "adminPassword",
       "value": "admin1234"
     },
     {
-      "key": "username",
-      "value": "bob"
+      "key": "email",
+      "value": "bob@example.com"
     },
     {
       "key": "password",
@@ -39,26 +39,6 @@
     },
     {
       "key": "productId",
-      "value": ""
-    },
-    {
-      "key": "penId",
-      "value": ""
-    },
-    {
-      "key": "notebookId",
-      "value": ""
-    },
-    {
-      "key": "highlighterId",
-      "value": ""
-    },
-    {
-      "key": "fileId",
-      "value": ""
-    },
-    {
-      "key": "calcId",
       "value": ""
     }
   ],
@@ -93,7 +73,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Bob\",\n  \"lastName\": \"Lee\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Bob\",\n  \"lastName\": \"Lee\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -139,7 +119,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -184,7 +164,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -198,6 +178,48 @@
               ],
               "path": [
                 "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Users (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('data เป็น array และไม่มี password', () => {",
+                  "  const users = pm.response.json().data;",
+                  "  pm.expect(users).to.be.an('array');",
+                  "  users.forEach((u) => pm.expect(u).to.not.have.property('password'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
               ]
             }
           }
@@ -273,7 +295,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -317,7 +339,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"nobody\",\n  \"password\": \"xxxxxx\"\n}",
+              "raw": "{\n  \"email\": \"nobody@example.com\",\n  \"password\": \"xxxxxx\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -383,7 +405,7 @@
           }
         },
         {
-          "name": "Create Product",
+          "name": "Create Product (admin)",
           "event": [
             {
               "listen": "test",
@@ -392,6 +414,58 @@
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
                   "if (pm.response.code < 300) { pm.collectionVariables.set('productId', pm.response.json().data._id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pen\",\n  \"description\": \"Blue pen\",\n  \"price\": 10,\n  \"stock\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Product ด้วย user → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('message มีคำว่า \"admin only\"', () => pm.expect(pm.response.json().message).to.include('admin only'));"
                 ]
               }
             }
@@ -522,7 +596,7 @@
           }
         },
         {
-          "name": "Update Product",
+          "name": "Update Product (admin)",
           "event": [
             {
               "listen": "test",
@@ -547,7 +621,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
@@ -776,7 +850,7 @@
       "name": "4. Cleanup",
       "item": [
         {
-          "name": "Delete Product",
+          "name": "Delete Product (admin)",
           "event": [
             {
               "listen": "test",
@@ -801,7 +875,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token}}",
+                  "value": "{{adminToken}}",
                   "type": "string"
                 }
               ]
@@ -817,836 +891,6 @@
               ]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "5. Demo หลัง seed:data",
-      "description": "รัน `npm run seed:data` ก่อนทุกครั้งที่จะเดโม (รีเซ็ต stock และ Order ตัวอย่าง) แล้วกด Run เฉพาะโฟลเดอร์นี้",
-      "item": [
-        {
-          "name": "A. Login",
-          "item": [
-            {
-              "name": "Login somchai",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "if (pm.response.code < 300) { pm.collectionVariables.set('token', pm.response.json().data.token); }"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "noauth"
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"username\": \"somchai\",\n  \"password\": \"123456\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/login",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "login"
-                  ]
-                },
-                "description": "user ที่ approved แล้ว → ได้ token"
-              }
-            },
-            {
-              "name": "Login newbie (ยังไม่ Approve → 401)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 401', () => pm.response.to.have.status(401));",
-                      "pm.test('message มีคำว่า \"waiting for approval\"', () => pm.expect(pm.response.json().message).to.include('waiting for approval'));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "noauth"
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"username\": \"newbie\",\n  \"password\": \"123456\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/login",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "login"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Login รหัสผิด → 401",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 401', () => pm.response.to.have.status(401));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "noauth"
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"username\": \"somchai\",\n  \"password\": \"wrongpass\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/login",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "login"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "B. ดูสินค้า",
-          "item": [
-            {
-              "name": "Get All Products (เก็บ id อัตโนมัติ)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "const list = pm.response.json().data || [];",
-                      "const map = { penId: 'ปากกาลูกลื่น สีน้ำเงิน', notebookId: 'สมุดโน้ต A5', highlighterId: 'ไฮไลท์ สีเหลือง', fileId: 'แฟ้มเอกสาร A4', calcId: 'เครื่องคิดเลข' };",
-                      "Object.entries(map).forEach(([v, name]) => {",
-                      "  const p = list.find((x) => x.name === name);",
-                      "  pm.test(`พบสินค้า ${name}`, () => pm.expect(p, 'ยังไม่ได้รัน npm run seed:data').to.exist);",
-                      "  if (p) pm.collectionVariables.set(v, p._id);",
-                      "});"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products"
-                  ]
-                },
-                "description": "ดึงสินค้าทั้งหมด แล้วเก็บ id ของสินค้าตัวอย่างลงตัวแปร penId, notebookId, highlighterId, fileId, calcId"
-              }
-            },
-            {
-              "name": "Get Product: เครื่องคิดเลข (stock 1)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('stock เหลือ 1', () => pm.expect(pm.response.json().data.stock).to.eql(1));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{calcId}}",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{calcId}}"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Get Product: id ผิดรูปแบบ → null 400",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 400', () => pm.response.to.have.status(400));",
-                      "pm.test('data is null', () => pm.expect(pm.response.json().data).to.be.null);"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/abc123",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "abc123"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "C. ดู Order",
-          "item": [
-            {
-              "name": "Get All Orders (อย่างน้อย 5 รายการจาก seed)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('มีอย่างน้อย 5 รายการ', () => pm.expect(pm.response.json().data.length).to.be.at.least(5));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "orders"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Get Orders of ปากกา (2 รายการ)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('ได้ 2 รายการ', () => pm.expect(pm.response.json().data).to.have.lengthOf(2));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{penId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{penId}}",
-                    "orders"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Get Orders of แฟ้ม (ยังไม่มี → [] 200)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('ได้ 0 รายการ', () => pm.expect(pm.response.json().data).to.have.lengthOf(0));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{fileId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{fileId}}",
-                    "orders"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "D. สั่งซื้อ + เช็ก stock",
-          "item": [
-            {
-              "name": "สั่งปากกา x2 → 201",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 201', () => pm.response.to.have.status(201));",
-                      "pm.test('totalPrice = 15 x 2 = 30', () => pm.expect(pm.response.json().data.totalPrice).to.eql(30));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"quantity\": 2\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{penId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{penId}}",
-                    "orders"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "สั่งเครื่องคิดเลข x2 (เกิน stock) → 400",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 400', () => pm.response.to.have.status(400));",
-                      "pm.test('message มีคำว่า \"cannot create order\"', () => pm.expect(pm.response.json().message).to.include('cannot create order'));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"quantity\": 2\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{calcId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{calcId}}",
-                    "orders"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "สั่งเครื่องคิดเลข x1 → 201 (stock เหลือ 0)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 201', () => pm.response.to.have.status(201));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"quantity\": 1\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{calcId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{calcId}}",
-                    "orders"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "สั่งเครื่องคิดเลข x1 อีกครั้ง (หมดแล้ว) → 400",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 400', () => pm.response.to.have.status(400));",
-                      "pm.test('message มีคำว่า \"cannot create order\"', () => pm.expect(pm.response.json().message).to.include('cannot create order'));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"quantity\": 1\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{calcId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{calcId}}",
-                    "orders"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "สั่ง quantity 0 → 400",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 400', () => pm.response.to.have.status(400));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"quantity\": 0\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{penId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{penId}}",
-                    "orders"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Get Product: เครื่องคิดเลข (stock 0)",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('stock เหลือ 0', () => pm.expect(pm.response.json().data.stock).to.eql(0));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{calcId}}",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{calcId}}"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "E. ไม่มี token",
-          "item": [
-            {
-              "name": "Get Products ไม่แนบ token → 401",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 401', () => pm.response.to.have.status(401));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "noauth"
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Create Order ไม่แนบ token → 401",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "pm.test('status 401', () => pm.response.to.have.status(401));"
-                    ]
-                  }
-                }
-              ],
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "auth": {
-                  "type": "noauth"
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"quantity\": 1\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/products/{{penId}}/orders",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "products",
-                    "{{penId}}",
-                    "orders"
-                  ]
-                }
-              }
-            }
-          ]
         }
       ]
     }

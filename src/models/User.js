@@ -3,7 +3,15 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
-    username: { type: String, required: true, unique: true, trim: true, minlength: 3 },
+    // ใช้ email เป็นชื่อเข้าสู่ระบบ เก็บเป็นตัวพิมพ์เล็กเสมอ กันสมัครซ้ำด้วยตัวพิมพ์ต่างกัน
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'invalid email format'],
+    },
     password: { type: String, required: true, minlength: 6, select: false },
     firstName: { type: String, trim: true },
     lastName: { type: String, trim: true },
