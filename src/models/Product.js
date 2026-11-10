@@ -1,20 +1,18 @@
 const mongoose = require('mongoose');
 
-// ตัวเลือกย่อย 1 ตัว เช่น "หมูกรอบ" (+10 บาท)
 const choiceSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    price: { type: Number, min: 0, default: 0 }, // ราคาที่บวกเพิ่มจากราคาเมนู
+    price: { type: Number, min: 0, default: 0 },
   },
   { _id: false }
 );
 
-// กลุ่มตัวเลือกของเมนู เช่น "เนื้อสัตว์", "ขนาด", "ท็อปปิ้ง"
 const optionGroupSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    isRequired: { type: Boolean, default: false }, // ลูกค้าต้องเลือกอย่างน้อย 1 อย่าง
-    isMultiple: { type: Boolean, default: false }, // เลือกได้หลายอย่าง (เช่น ท็อปปิ้ง)
+    isRequired: { type: Boolean, default: false },
+    isMultiple: { type: Boolean, default: false },
     choices: {
       type: [choiceSchema],
       validate: [
@@ -32,8 +30,7 @@ const productSchema = new mongoose.Schema(
     description: { type: String, trim: true, default: '' },
     category: { type: String, trim: true, default: 'อื่นๆ' },
     imageUrl: { type: String, trim: true, default: '' },
-    price: { type: Number, required: true, min: 0 }, // ราคาเริ่มต้น ยังไม่รวมตัวเลือก
-    // จำนวนที่ยังขายได้ (จาน/ที่)
+    price: { type: Number, required: true, min: 0 },
     stock: {
       type: Number,
       required: true,

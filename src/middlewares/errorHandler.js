@@ -4,13 +4,11 @@ function notFound(req, res) {
   return fail(res, 400, `route not found: ${req.method} ${req.originalUrl}`);
 }
 
-// eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, next) {
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map((e) => e.message);
     return fail(res, 400, 'validation error', errors);
   }
-  // ค่าผิดชนิด เช่น price: "abc" ตอน update -> 400
   if (err.name === 'CastError') {
     return fail(res, 400, 'validation error', [`invalid value for ${err.path}`]);
   }

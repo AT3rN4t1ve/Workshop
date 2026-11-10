@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
-    // ใช้ email เป็นชื่อเข้าสู่ระบบ เก็บเป็นตัวพิมพ์เล็กเสมอ กันสมัครซ้ำด้วยตัวพิมพ์ต่างกัน
     email: {
       type: String,
       required: true,

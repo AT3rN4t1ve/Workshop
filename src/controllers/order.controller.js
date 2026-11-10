@@ -8,16 +8,13 @@ const populate = [
   { path: 'user', select: 'email firstName lastName' },
 ];
 
-// admin เห็น Order ของทุกคน ส่วน user เห็นเฉพาะของตัวเอง
 const visibleTo = (user) => (user.role === 'admin' ? {} : { user: user._id });
 
-// [GET] /api/v1/orders -> แสดง Order ทุกรายการ (user: เฉพาะของตัวเอง)
 exports.getOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find(visibleTo(req.user)).sort({ createdAt: -1 }).populate(populate);
   return ok(res, orders);
 });
 
-// [GET] /api/v1/products/:id/orders -> แสดง Order ทั้งหมดของ Product (user: เฉพาะของตัวเอง)
 exports.getProductOrders = asyncHandler(async (req, res) => {
   const exists = await Product.exists({ _id: req.params.id });
   if (!exists) return fail(res, 400, 'product not found', null);
@@ -28,8 +25,6 @@ exports.getProductOrders = asyncHandler(async (req, res) => {
   return ok(res, orders);
 });
 
-// ตรวจตัวเลือกที่ลูกค้าส่งมา ([{ group, choice }]) กับกลุ่มตัวเลือกของเมนู
-// คืน { options } พร้อมราคาจากฝั่ง server (ไม่เชื่อราคาจาก client) หรือ { error }
 function resolveOptions(product, selected) {
   if (selected === undefined || selected === null) selected = [];
   if (!Array.isArray(selected)) return { error: 'options must be an array' };
@@ -60,11 +55,6 @@ function resolveOptions(product, selected) {
   return { options };
 }
 
-// [POST] /api/v1/products/:id/orders -> เพิ่ม Order ใน Product
-//  body: { quantity, options: [{ group, choice }], note }
-//  เงื่อนไข: Order ต้องไม่เกินกว่าใน Stock Product
-//   - ไม่ผ่าน -> ไม่สามารถเพิ่ม Order ได้ (400)
-//   - ผ่าน   -> ตัด stock + บันทึก Order (201) สถานะเริ่มต้น pending
 exports.createProductOrder = asyncHandler(async (req, res) => {
   const quantity = Number(req.body.quantity);
   if (!Number.isInteger(quantity) || quantity < 1) {
@@ -81,7 +71,6 @@ exports.createProductOrder = asyncHandler(async (req, res) => {
   const { options, error } = resolveOptions(product, req.body.options);
   if (error) return fail(res, 400, error);
 
-  // ตัด stock แบบ atomic: อัปเดตเฉพาะเมื่อ stock >= quantity กัน order ซ้อนพร้อมกันจนติดลบ
   const updated = await Product.findOneAndUpdate(
     { _id: product._id, stock: { $gte: quantity } },
     { $inc: { stock: -quantity } },
@@ -106,23 +95,17 @@ exports.createProductOrder = asyncHandler(async (req, res) => {
     await order.populate(populate);
     return created(res, order);
   } catch (err) {
-    // บันทึก order ไม่สำเร็จ -> คืน stock
     await Product.updateOne({ _id: updated._id }, { $inc: { stock: quantity } });
     throw err;
   }
 });
 
-// สถานะปลายทาง -> สถานะต้นทางที่อนุญาต
 const ALLOWED_FROM = {
   cooking: ['pending'],
   done: ['cooking'],
   cancelled: ['pending', 'cooking'],
 };
 
-// [PUT] /api/v1/orders/:id/status  body: { status }
-//  - admin: pending -> cooking -> done, ยกเลิกได้ก่อนเสร็จ
-//  - user : ยกเลิกได้เฉพาะ Order ของตัวเองที่ร้านยังไม่รับ (pending)
-//  ยกเลิกแล้วคืน stock ให้ Product
 exports.updateOrderStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
   const isAdmin = req.user.role === 'admin';
@@ -132,7 +115,6 @@ exports.updateOrderStatus = asyncHandler(async (req, res) => {
   const scope = { _id: req.params.id, ...visibleTo(req.user) };
   const from = isAdmin ? ALLOWED_FROM[status] : ['pending'];
 
-  // เปลี่ยนแบบ atomic โดยมีเงื่อนไขสถานะเดิม กันกดซ้ำแล้วคืน stock สองรอบ
   const order = await Order.findOneAndUpdate({ ...scope, status: { $in: from } }, { status }, { new: true });
   if (!order) {
     const current = await Order.findOne(scope);
