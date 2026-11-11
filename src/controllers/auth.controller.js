@@ -45,7 +45,54 @@ exports.getUsers = asyncHandler(async (_req, res) => {
   return ok(res, users);
 });
 
-exports.approveUser = asyncHandler(async (req, res) => {
+const NAME_MAX_LENGTH = 50;
+const PASSWORD_MIN_LENGTH = 6;
+
+exports.getMe = (req, res) => ok(res, req.user);
+
+exports.updateMe = asyncHandler(async (req, res) => {
+  const errors = [];
+  const updates = {};
+
+  ['firstName', 'lastName'].forEach((field) => {
+    const value = req.body?.[field];
+    if (typeof value !== 'string' || !value.trim()) {
+      errors.push(`${field} is required`);
+    } else if (value.trim().length > NAME_MAX_LENGTH) {
+      errors.push(`${field} must be up to ${NAME_MAX_LENGTH} characters`);
+    } else {
+      updates[field] = value.trim();
+    }
+  });
+  if (errors.length) return fail(res, 400, 'validation error', errors);
+
+  const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
+  return ok(res, user, 'profile updated');
+});
+
+exports.changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!isNonEmptyString(currentPassword) || !isNonEmptyString(newPassword)) {
+    return fail(res, 400, 'current and new password are required');
+  }
+  if (newPassword.length < PASSWORD_MIN_LENGTH) {
+    return fail(res, 400, `password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+  }
+
+  const user = await User.findById(req.user._id).select('+password');
+  if (!(await user.comparePassword(currentPassword))) {
+    return fail(res, 400, 'current password is incorrect');
+  }
+  if (await user.comparePassword(newPassword)) {
+    return fail(res, 400, 'new password must be different');
+  }
+
+  user.password = newPassword;
+  await user.save();
+  return ok(res, null, 'password changed');
+});
+
+exports.approveUser =asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(req.params.id, { approved: true }, { new: true });
   if (!user) return fail(res, 400, 'user not found', null);
   return ok(res, user, 'approved');

@@ -14,6 +14,10 @@ router.put('/users/:id/approve', authenticate, requireAdmin, validateId(), auth.
 
 router.use(authenticate);
 
+router.get('/me', auth.getMe);
+router.put('/me', auth.updateMe);
+router.put('/me/password', auth.changePassword);
+
 router.get('/products', product.getProducts);
 router.post('/products', requireAdmin, product.createProduct);
 router.get('/products/:id', validateId(), product.getProduct);
