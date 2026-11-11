@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Shop API (Express + MongoDB)",
-    "description": "ไล่ flow ตั้งแต่สมัครสมาชิกจนถึงสั่งซื้อ รันตามลำดับโฟลเดอร์ 1–4\nต้องมี admin ในระบบก่อน (ผู้ใช้คนแรกที่สมัครจะเป็น admin) แล้วตั้งตัวแปร adminEmail / adminPassword ให้ตรง\ntoken และ id จะถูกเก็บลง collection variables อัตโนมัติ",
+    "description": "ไล่ flow ตั้งแต่สมัครสมาชิกจนถึงสั่งอาหารและเปลี่ยนสถานะ Order รันตามลำดับโฟลเดอร์ 1–5\nต้องมี admin ในระบบก่อน (ผู้ใช้คนแรกที่สมัครจะเป็น admin) แล้วตั้งตัวแปร adminEmail / adminPassword ให้ตรง\ntoken และ id จะถูกเก็บลง collection variables อัตโนมัติ",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -40,6 +40,22 @@
     {
       "key": "productId",
       "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "cancelOrderId",
+      "value": ""
+    },
+    {
+      "key": "stockBeforeCancel",
+      "value": ""
+    },
+    {
+      "key": "newPassword",
+      "value": "654321"
     }
   ],
   "item": [
@@ -413,7 +429,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
-                  "if (pm.response.code < 300) { pm.collectionVariables.set('productId', pm.response.json().data._id); }"
+                  "if (pm.response.code < 300) { pm.collectionVariables.set('productId', pm.response.json().data._id); }",
+                  "pm.test('มี optionGroups 2 กลุ่ม', () => pm.expect(pm.response.json().data.optionGroups).to.have.lengthOf(2));"
                 ]
               }
             }
@@ -438,7 +455,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Pen\",\n  \"description\": \"Blue pen\",\n  \"price\": 10,\n  \"stock\": 5\n}",
+              "raw": "{\n  \"name\": \"ข้าวกะเพรา (Postman)\",\n  \"description\": \"กะเพราผัดไฟแรง ราดข้าวสวยร้อนๆ\",\n  \"category\": \"จานเดียว\",\n  \"imageUrl\": \"\",\n  \"price\": 50,\n  \"stock\": 10,\n  \"optionGroups\": [\n    {\n      \"name\": \"เนื้อสัตว์\",\n      \"isRequired\": true,\n      \"isMultiple\": false,\n      \"choices\": [\n        {\n          \"name\": \"หมูสับ\",\n          \"price\": 0\n        },\n        {\n          \"name\": \"กุ้ง\",\n          \"price\": 15\n        }\n      ]\n    },\n    {\n      \"name\": \"เพิ่มเติม\",\n      \"isRequired\": false,\n      \"isMultiple\": true,\n      \"choices\": [\n        {\n          \"name\": \"ไข่ดาว\",\n          \"price\": 10\n        },\n        {\n          \"name\": \"ข้าวเพิ่ม\",\n          \"price\": 5\n        }\n      ]\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -490,7 +507,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Pen\",\n  \"description\": \"Blue pen\",\n  \"price\": 10,\n  \"stock\": 5\n}",
+              "raw": "{\n  \"name\": \"ข้าวกะเพรา (Postman)\",\n  \"description\": \"กะเพราผัดไฟแรง ราดข้าวสวยร้อนๆ\",\n  \"category\": \"จานเดียว\",\n  \"imageUrl\": \"\",\n  \"price\": 50,\n  \"stock\": 10,\n  \"optionGroups\": [\n    {\n      \"name\": \"เนื้อสัตว์\",\n      \"isRequired\": true,\n      \"isMultiple\": false,\n      \"choices\": [\n        {\n          \"name\": \"หมูสับ\",\n          \"price\": 0\n        },\n        {\n          \"name\": \"กุ้ง\",\n          \"price\": 15\n        }\n      ]\n    },\n    {\n      \"name\": \"เพิ่มเติม\",\n      \"isRequired\": false,\n      \"isMultiple\": true,\n      \"choices\": [\n        {\n          \"name\": \"ไข่ดาว\",\n          \"price\": 10\n        },\n        {\n          \"name\": \"ข้าวเพิ่ม\",\n          \"price\": 5\n        }\n      ]\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -628,7 +645,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"price\": 12,\n  \"stock\": 5\n}",
+              "raw": "{\n  \"price\": 55,\n  \"stock\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -653,6 +670,61 @@
       "name": "3. Orders",
       "item": [
         {
+          "name": "Create Order (ไม่เลือกตัวเลือกที่บังคับ → 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('message มีคำว่า \"option required\"', () => pm.expect(pm.response.json().message).to.include('option required'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "เมนูมีกลุ่ม \"เนื้อสัตว์\" ที่ isRequired = true ไม่ส่ง options จึงต้องได้ 400"
+          }
+        },
+        {
           "name": "Create Order (เกิน stock → 400)",
           "event": [
             {
@@ -660,7 +732,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('message มีคำว่า \"cannot create order\"', () => pm.expect(pm.response.json().message).to.include('cannot create order'));"
                 ]
               }
             }
@@ -685,7 +758,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"quantity\": 999\n}",
+              "raw": "{\n  \"quantity\": 999,\n  \"options\": [\n    {\n      \"group\": \"เนื้อสัตว์\",\n      \"choice\": \"กุ้ง\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -706,14 +779,23 @@
           }
         },
         {
-          "name": "Create Order",
+          "name": "Create Order (มี options + note)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('status 201', () => pm.response.to.have.status(201));"
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "  const order = pm.response.json().data;",
+                  "  pm.collectionVariables.set('orderId', order._id);",
+                  "  pm.test('status เริ่มต้นเป็น pending', () => pm.expect(order.status).to.eql('pending'));",
+                  "  pm.test('unitPrice = 55 + 15 + 10 = 80, totalPrice = 160', () => {",
+                  "    pm.expect(order.unitPrice).to.eql(80);",
+                  "    pm.expect(order.totalPrice).to.eql(160);",
+                  "  });",
+                  "}"
                 ]
               }
             }
@@ -738,7 +820,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"quantity\": 3\n}",
+              "raw": "{\n  \"quantity\": 2,\n  \"options\": [\n    {\n      \"group\": \"เนื้อสัตว์\",\n      \"choice\": \"กุ้ง\"\n    },\n    {\n      \"group\": \"เพิ่มเติม\",\n      \"choice\": \"ไข่ดาว\"\n    }\n  ],\n  \"note\": \"ไม่ใส่ผักชี\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -756,6 +838,287 @@
                 "orders"
               ]
             }
+          }
+        },
+        {
+          "name": "Order Status → cooking (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('order status = cooking', () => pm.expect(pm.response.json().data.status).to.eql('cooking'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cooking\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Order Status → done (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('order status = done', () => pm.expect(pm.response.json().data.status).to.eql('done'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Order Status done → cancelled (→ 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('message มีคำว่า \"cannot change status\"', () => pm.expect(pm.response.json().message).to.include('cannot change status'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelled\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "done เป็นสถานะสุดท้าย เปลี่ยนต่อไม่ได้"
+          }
+        },
+        {
+          "name": "Create Order (สำหรับยกเลิก)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code < 300) {",
+                  "  const order = pm.response.json().data;",
+                  "  pm.collectionVariables.set('cancelOrderId', order._id);",
+                  "  pm.collectionVariables.set('stockBeforeCancel', order.product.stock);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1,\n  \"options\": [\n    {\n      \"group\": \"เนื้อสัตว์\",\n      \"choice\": \"หมูสับ\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancel Order (user, คืน stock)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('order status = cancelled', () => pm.expect(pm.response.json().data.status).to.eql('cancelled'));",
+                  "pm.test('stock คืนตาม quantity', () => {",
+                  "  const order = pm.response.json().data;",
+                  "  const before = Number(pm.collectionVariables.get('stockBeforeCancel'));",
+                  "  pm.expect(order.product.stock).to.eql(before + order.quantity);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{cancelOrderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{cancelOrderId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelled\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "user ยกเลิก Order ของตัวเองได้เฉพาะตอนที่ยัง pending และระบบจะคืน stock"
           }
         },
         {
@@ -847,7 +1210,263 @@
       ]
     },
     {
-      "name": "4. Cleanup",
+      "name": "4. Profile",
+      "item": [
+        {
+          "name": "Get Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('เป็นข้อมูลของตัวเองและไม่มี password', () => {",
+                  "  const me = pm.response.json().data;",
+                  "  pm.expect(me.email).to.eql(pm.collectionVariables.get('email'));",
+                  "  pm.expect(me).to.not.have.property('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ชื่อถูกแก้แล้ว', () => pm.expect(pm.response.json().data.firstName).to.eql('Bobby'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Bobby\",\n  \"lastName\": \"Lee\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Change Password (รหัสเดิมผิด → 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"wrong-password\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Change Password (เปลี่ยนกลับเป็นรหัสเดิม)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{newPassword}}\",\n  \"newPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "เปลี่ยนกลับเพื่อให้รัน collection ซ้ำได้"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Cleanup",
       "item": [
         {
           "name": "Delete Product (admin)",
