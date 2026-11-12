@@ -41,7 +41,7 @@ exports.login = asyncHandler(async (req, res) => {
 });
 
 exports.getUsers = asyncHandler(async (_req, res) => {
-  const users = await User.find().sort({ createdAt: -1 });
+  const users = await User.find().select('-avatar').sort({ createdAt: -1 });
   return ok(res, users);
 });
 
@@ -90,6 +90,25 @@ exports.changePassword = asyncHandler(async (req, res) => {
   user.password = newPassword;
   await user.save();
   return ok(res, null, 'password changed');
+});
+
+const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+const AVATAR_MAX_LENGTH = 400 * 1024;
+
+exports.updateAvatar = asyncHandler(async (req, res) => {
+  const avatar = req.body?.avatar;
+  if (typeof avatar !== 'string' || !AVATAR_PATTERN.test(avatar)) {
+    return fail(res, 400, 'avatar must be a png, jpeg or webp image');
+  }
+  if (avatar.length > AVATAR_MAX_LENGTH) return fail(res, 400, 'avatar is too large');
+
+  const user = await User.findByIdAndUpdate(req.user._id, { avatar }, { new: true });
+  return ok(res, user, 'avatar updated');
+});
+
+exports.removeAvatar = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(req.user._id, { avatar: '' }, { new: true });
+  return ok(res, user, 'avatar removed');
 });
 
 exports.approveUser =asyncHandler(async (req, res) => {

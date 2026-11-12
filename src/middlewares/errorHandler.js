@@ -18,6 +18,9 @@ function errorHandler(err, req, res, next) {
   if (err.type === 'entity.parse.failed') {
     return fail(res, 400, 'invalid JSON body');
   }
+  if (err.type === 'entity.too.large') {
+    return fail(res, 413, 'payload too large');
+  }
   console.error(err);
   return fail(res, 500, 'internal server error');
 }

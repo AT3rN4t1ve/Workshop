@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, minlength: 6, select: false },
     firstName: { type: String, trim: true },
     lastName: { type: String, trim: true },
+    avatar: { type: String, default: '' },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     approved: { type: Boolean, default: false },
   },

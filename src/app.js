@@ -7,7 +7,7 @@ const { notFound, errorHandler } = require('./middlewares/errorHandler');
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 app.get('/', (_req, res) => res.json({ status: 200, message: 'Shop API is running', data: null }));

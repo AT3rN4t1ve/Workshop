@@ -17,6 +17,8 @@ router.use(authenticate);
 router.get('/me', auth.getMe);
 router.put('/me', auth.updateMe);
 router.put('/me/password', auth.changePassword);
+router.put('/me/avatar', auth.updateAvatar);
+router.delete('/me/avatar', auth.removeAvatar);
 
 router.get('/products', product.getProducts);
 router.post('/products', requireAdmin, product.createProduct);

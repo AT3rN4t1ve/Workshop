@@ -4,7 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { ok, created, fail } = require('../utils/response');
 
 const populate = [
-  { path: 'product', select: 'name price stock imageUrl' },
+  { path: 'product', select: 'name price stock imageUrl category' },
   { path: 'user', select: 'email firstName lastName' },
 ];
 
@@ -103,6 +103,7 @@ exports.createProductOrder = asyncHandler(async (req, res) => {
 const ALLOWED_FROM = {
   cooking: ['pending'],
   done: ['cooking'],
+  delivered: ['done'],
   cancelled: ['pending', 'cooking'],
 };
 

@@ -1,6 +1,6 @@
 # Shop API (Express.js + MongoDB + Mongoose)
 
-ระบบผู้ใช้ ↔ ร้านอาหาร ตาม flowchart: สมัครสมาชิก → รอ Approve → เข้าสู่ระบบ → จัดการเมนู (Product) / สั่งอาหาร (Order) พร้อมตัวเลือก (เช่น เนื้อสัตว์ ขนาด ความเผ็ด) → ร้านเปลี่ยนสถานะ Order (pending → cooking → done) หรือยกเลิก
+ระบบผู้ใช้ ↔ ร้านอาหาร ตาม flowchart: สมัครสมาชิก → รอ Approve → เข้าสู่ระบบ → จัดการเมนู (Product) / สั่งอาหาร (Order) พร้อมตัวเลือก (เช่น เนื้อสัตว์ ขนาด ความเผ็ด) → ร้านเปลี่ยนสถานะ Order (pending → cooking → done → delivered) หรือยกเลิก
 
 ## สิ่งที่ต้องมี
 
@@ -106,7 +106,7 @@ flowchart LR
 
 | ขั้น | ไฟล์ | ทำอะไร | ถ้าไม่ผ่าน |
 |---|---|---|---|
-| 1 | `app.js` | เปิด CORS, แปลง JSON body, log request | JSON พัง → 400 `invalid JSON body` |
+| 1 | `app.js` | เปิด CORS, แปลง JSON body (จำกัดขนาด 1 MB), log request | JSON พัง → 400 `invalid JSON body`, body เกิน 1 MB → 413 `payload too large` |
 | 2 | `routes/index.js` | `/register`, `/login` ผ่านได้เลย ส่วน route อื่นต้องผ่าน `authenticate` | ไม่มี route → 400 `route not found` |
 | 3 | `middlewares/auth.js` → `authenticate` | ตรวจ `Bearer` token, verify JWT, หา User, เช็ค `approved` แล้วใส่ `req.user` | 401 |
 | 4 | `middlewares/auth.js` → `requireAdmin` | เช็ค `role === 'admin'` (ใช้กับ `/users`, `/users/:id/approve` และการเพิ่ม/แก้ไข/ลบ Product) | 401 `forbidden: admin only` |
@@ -151,22 +151,24 @@ stateDiagram-v2
     [*] --> pending: สร้าง Order
     pending --> cooking: admin
     cooking --> done: admin
+    done --> delivered: admin
     pending --> cancelled: admin / เจ้าของ Order
     cooking --> cancelled: admin
-    done --> [*]
+    delivered --> [*]
     cancelled --> [*]
 ```
 
 | เปลี่ยนเป็น | เปลี่ยนได้จาก | ใครเปลี่ยนได้ | หมายเหตุ |
 |---|---|---|---|
-| `cooking` | `pending` | admin | |
-| `done` | `cooking` | admin | |
+| `cooking` | `pending` | admin | รับออเดอร์ |
+| `done` | `cooking` | admin | ทำเสร็จแล้ว รอส่ง |
+| `delivered` | `done` | admin | ส่งให้ลูกค้าแล้ว |
 | `cancelled` | `pending`, `cooking` | admin | **คืน stock** ตาม `quantity` ของ Order |
 | `cancelled` | `pending` เท่านั้น | user (เฉพาะ Order ของตัวเอง) | **คืน stock** ตาม `quantity` ของ Order |
 
-- `done` และ `cancelled` เป็นสถานะสุดท้าย เปลี่ยนต่อไม่ได้
+- `delivered` และ `cancelled` เป็นสถานะสุดท้าย เปลี่ยนต่อไม่ได้ ส่วน `done` เปลี่ยนต่อได้เฉพาะเป็น `delivered` (ยกเลิกไม่ได้แล้ว)
 - เปลี่ยนข้ามขั้น / ย้อนกลับ (เช่น `pending → done`, `done → cancelled`) → 400 `cannot change status from <เดิม> to <ใหม่>`
-- `status` ไม่ใช่ `cooking` / `done` / `cancelled` → 400 `invalid status`
+- `status` ไม่ใช่ `cooking` / `done` / `delivered` / `cancelled` → 400 `invalid status`
 - user ขอเปลี่ยนเป็นสถานะอื่นที่ไม่ใช่ `cancelled` → 401 `forbidden: admin only`
 - ไม่พบ Order หรือเป็น Order ของคนอื่น (กรณี user) → 400 `order not found` (`data: null`)
 
@@ -178,10 +180,10 @@ stateDiagram-v2
 4. `POST /login` ด้วย admin → ได้ token ของ admin
 5. `PUT /users/<_id>/approve` ด้วย token ของ admin
 6. `POST /login` ด้วย user ใหม่ → ได้ token ของ user
-7. `GET /me` ดูโปรไฟล์ / `PUT /me` แก้ชื่อ / `PUT /me/password` เปลี่ยนรหัสผ่าน
+7. `GET /me` ดูโปรไฟล์ / `PUT /me` แก้ชื่อ / `PUT /me/avatar` ตั้งรูปโปรไฟล์ (`DELETE` เพื่อลบ) / `PUT /me/password` เปลี่ยนรหัสผ่าน
 8. `POST /products` เพิ่มเมนูพร้อม `optionGroups` ด้วย token ของ admin (หรือใช้เมนูจาก seed) → จด `_id`
 9. `POST /products/<productId>/orders` พร้อม `quantity` และ `options` ด้วย token ของ user → stock ลดลง, Order เป็น `pending`
-10. admin เรียก `PUT /orders/<orderId>/status` เป็น `cooking` แล้ว `done` หรือ user ยกเลิก Order ที่ยัง `pending` ด้วย `cancelled` → stock คืน
+10. admin เรียก `PUT /orders/<orderId>/status` เป็น `cooking` → `done` → `delivered` หรือ user ยกเลิก Order ที่ยัง `pending` ด้วย `cancelled` → stock คืน
 11. `GET /orders` หรือ `GET /products/<productId>/orders` ดู Order (user เห็นเฉพาะของตัวเอง, admin เห็นทั้งหมด)
 
 ## Response format
@@ -200,7 +202,7 @@ stateDiagram-v2
 | มีรายการเดียว | `{...}` | 200 |
 | บันทึกสำเร็จ | `{...}` | 201 |
 
-สถานะ status: 200 สำเร็จ · 201 สร้างสำเร็จ · 400 ไม่สำเร็จ · 401 ไม่มีสิทธิ์ · 500 ไม่ทราบสาเหตุ
+สถานะ status: 200 สำเร็จ · 201 สร้างสำเร็จ · 400 ไม่สำเร็จ · 401 ไม่มีสิทธิ์ · 413 body ใหญ่เกิน 1 MB · 500 ไม่ทราบสาเหตุ
 
 กรณี error อื่นๆ
 
@@ -214,11 +216,13 @@ stateDiagram-v2
 |---|---|---|---|
 | POST | `/register` | - | สมัครสมาชิก (approved = false) |
 | POST | `/login` | - | เข้าสู่ระบบ → ได้ JWT (ไม่มีบัญชี / ยังไม่ Approve → 401) |
-| GET | `/users` | admin | แสดงรายชื่อผู้ใช้ทั้งหมด (ใหม่สุดก่อน) |
+| GET | `/users` | admin | แสดงรายชื่อผู้ใช้ทั้งหมด (ใหม่สุดก่อน, ไม่ส่ง `avatar` เพื่อให้ response เบา) |
 | PUT | `/users/:id/approve` | admin | Approve ผู้ใช้ |
 | GET | `/me` | user | ดูโปรไฟล์ของตัวเอง |
 | PUT | `/me` | user | แก้ไข `firstName` / `lastName` ของตัวเอง |
 | PUT | `/me/password` | user | เปลี่ยนรหัสผ่าน (ต้องส่งรหัสผ่านเดิม) |
+| PUT | `/me/avatar` | user | ตั้ง/เปลี่ยนรูปโปรไฟล์ (data URL ของรูป png / jpeg / webp) |
+| DELETE | `/me/avatar` | user | ลบรูปโปรไฟล์ (`avatar` กลับเป็น `""`) |
 | GET | `/products` | user | แสดงรายการ Product ทั้งหมด |
 | GET | `/products/:id` | user | ดูรายการ Product 1 รายการ |
 | POST | `/products` | admin | เพิ่มรายการ Product |
@@ -227,7 +231,7 @@ stateDiagram-v2
 | GET | `/orders` | user | แสดง Order ทุกรายการ (user เห็นเฉพาะของตัวเอง, admin เห็นทั้งหมด) |
 | GET | `/products/:id/orders` | user | แสดง Order ทั้งหมดของ Product (user เห็นเฉพาะของตัวเอง, admin เห็นทั้งหมด) |
 | POST | `/products/:id/orders` | user | เพิ่ม Order ใน Product (ตรวจตัวเลือก และ quantity ต้องไม่เกิน stock) |
-| PUT | `/orders/:id/status` | user / admin | เปลี่ยนสถานะ Order (admin: cooking / done / cancelled, user: cancelled เฉพาะ Order ตัวเองที่ยัง pending) |
+| PUT | `/orders/:id/status` | user / admin | เปลี่ยนสถานะ Order (admin: cooking / done / delivered / cancelled, user: cancelled เฉพาะ Order ตัวเองที่ยัง pending) |
 
 Route ที่ต้อง auth ให้ส่ง header `Authorization: Bearer <token>` และผู้ใช้ต้องได้รับการ Approve แล้ว
 
@@ -248,6 +252,10 @@ Route ที่ต้อง auth ให้ส่ง header `Authorization: Beare
 
 // PUT /me/password
 { "currentPassword": "123456", "newPassword": "654321" }
+
+// PUT /me/avatar
+{ "avatar": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg..." }
+// DELETE /me/avatar ไม่ต้องส่ง body
 
 // POST /products, PUT /products/:id
 {
@@ -281,7 +289,7 @@ Route ที่ต้อง auth ให้ส่ง header `Authorization: Beare
 // → unitPrice = 50 + 15 + 10 = 75, totalPrice = 150
 
 // PUT /orders/:id/status
-{ "status": "cooking" }   // หรือ "done", "cancelled"
+{ "status": "cooking" }   // หรือ "done", "delivered", "cancelled"
 ```
 
 Validation
@@ -289,6 +297,7 @@ Validation
 - `email` ต้องถูกรูปแบบและห้ามซ้ำ (เก็บเป็นตัวพิมพ์เล็ก), `password` ยาวอย่างน้อย 6 ตัวอักษร
 - `PUT /me`: ต้องส่งทั้ง `firstName` และ `lastName` เป็นข้อความไม่ว่าง ยาวไม่เกิน 50 ตัวอักษร (แก้ email / role ไม่ได้)
 - `PUT /me/password`: `currentPassword` ต้องถูก, `newPassword` ยาวอย่างน้อย 6 ตัวอักษรและต้องไม่ซ้ำรหัสเดิม
+- `PUT /me/avatar`: `avatar` ต้องเป็น data URL แบบ base64 ของรูป `png` / `jpeg` / `webp` (ไม่รับ URL ภายนอก) และยาวไม่เกิน 400 KB → ไม่ผ่านได้ 400 `avatar must be a png, jpeg or webp image` หรือ `avatar is too large` (หน้าบ้านควรย่อรูปก่อนส่ง)
 - Product ต้องมี `name` และ `price`, ส่วน `price` และ `stock` ต้องไม่ติดลบ และ `stock` ต้องเป็นจำนวนเต็ม
 - `category` ไม่ส่งจะเป็น `อื่นๆ`, `description` / `imageUrl` ไม่ส่งจะเป็น `""`
 - `optionGroups`: ชื่อกลุ่มห้ามซ้ำ, แต่ละกลุ่มต้องมีอย่างน้อย 1 ตัวเลือก, ชื่อตัวเลือกในกลุ่มเดียวกันห้ามซ้ำ, `price` ของตัวเลือกต้องไม่ติดลบ (ไม่ส่งเป็น 0)
@@ -302,7 +311,8 @@ Validation
 
 - เพิ่ม Order: ตัด stock แบบ atomic (`findOneAndUpdate` กับเงื่อนไข `stock >= quantity`) กัน order ที่ยิงพร้อมกันทำให้ stock ติดลบ ถ้าเกิน stock ตอบ 400 "cannot create order"
 - Order เก็บ `productName`, `options` (พร้อมราคา), `unitPrice` / `totalPrice` ณ เวลาสั่ง ราคา/ตัวเลือกของ Product เปลี่ยนทีหลังไม่กระทบ Order เดิม
-- ยกเลิก Order (`cancelled`) จะคืน stock ให้ Product ตาม `quantity` ส่วน `done` ไม่คืน
+- ยกเลิก Order (`cancelled`) จะคืน stock ให้ Product ตาม `quantity` ส่วน `done` / `delivered` ไม่คืน
+- Order ที่ส่งกลับไป populate `product` (`name price stock imageUrl category`) และ `user` (`email firstName lastName`) มาให้แล้ว
 - `/register` ไม่รับ `role` / `approved` จาก body กันการตั้งตัวเองเป็น admin (admin มีได้จากการเป็นผู้สมัครคนแรกของระบบเท่านั้น)
 - สิทธิ์ตาม role: user ดูเมนู สั่งอาหาร ดู/ยกเลิก Order ของตัวเอง (ที่ยัง pending) และแก้โปรไฟล์ตัวเองได้ ส่วน admin จัดการเมนู ดู Order ของทุกคน เปลี่ยนสถานะ Order และดู/Approve ผู้ใช้ได้
 - id ผิดรูปแบบหรือไม่พบ → `data: null`, status 400 ตาม flowchart

@@ -207,10 +207,13 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('data เป็น array และไม่มี password', () => {",
+                  "pm.test('data เป็น array และไม่มี password / avatar', () => {",
                   "  const users = pm.response.json().data;",
                   "  pm.expect(users).to.be.an('array');",
-                  "  users.forEach((u) => pm.expect(u).to.not.have.property('password'));",
+                  "  users.forEach((u) => {",
+                  "    pm.expect(u).to.not.have.property('password');",
+                  "    pm.expect(u).to.not.have.property('avatar');",
+                  "  });",
                   "});"
                 ]
               }
@@ -949,7 +952,61 @@
           }
         },
         {
-          "name": "Order Status done → cancelled (→ 400)",
+          "name": "Order Status → delivered (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('order status = delivered', () => pm.expect(pm.response.json().data.status).to.eql('delivered'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"delivered\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Order Status delivered → cancelled (→ 400)",
           "event": [
             {
               "listen": "test",
@@ -1000,7 +1057,7 @@
                 }
               }
             },
-            "description": "done เป็นสถานะสุดท้าย เปลี่ยนต่อไม่ได้"
+            "description": "delivered เป็นสถานะสุดท้าย เปลี่ยนต่อไม่ได้"
           }
         },
         {
@@ -1303,6 +1360,153 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        },
+        {
+          "name": "Update Avatar (ไม่ใช่รูป → 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('message ถูกต้อง', () => pm.expect(pm.response.json().message).to.eql('avatar must be a png, jpeg or webp image'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/avatar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "avatar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"avatar\": \"https://example.com/me.png\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "avatar ต้องเป็น data URL ของรูป png / jpeg / webp (base64) ไม่รับ URL"
+          }
+        },
+        {
+          "name": "Update Avatar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('avatar ถูกบันทึก', () => pm.expect(pm.response.json().data.avatar).to.match(/^data:image\\/png;base64,/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/avatar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "avatar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"avatar\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "ตัวอย่างใช้รูป PNG ขนาด 1×1 px — ความยาวทั้งหมดต้องไม่เกิน 400 KB"
+          }
+        },
+        {
+          "name": "Remove Avatar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('avatar ถูกลบ', () => pm.expect(pm.response.json().data.avatar).to.eql(''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/avatar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me",
+                "avatar"
+              ]
             }
           }
         },
